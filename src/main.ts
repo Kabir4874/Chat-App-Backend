@@ -1,7 +1,7 @@
-import { ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import * as cookieParser from 'cookie-parser';
-import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.mjs';
+import { graphqlUploadExpress } from 'graphql-upload';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -24,6 +24,15 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
+      exceptionFactory: (errors) => {
+        const formattedErrors = errors.reduce((accumulator, error) => {
+          accumulator[error.property] = Object.values(error.constraints).join(
+            ',',
+          );
+          return accumulator;
+        }, {});
+        throw new BadRequestException(formattedErrors);
+      },
     }),
   );
   await app.listen(3000);
