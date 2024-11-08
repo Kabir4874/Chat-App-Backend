@@ -5,9 +5,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 import { Request, Response } from 'express';
 import { PrismaService } from 'src/prisma.service';
 import { User } from 'src/user/user.types';
+import { LoginDto, RegisterDto } from './dto';
 @Injectable()
 export class AuthService {
   constructor(
@@ -66,7 +68,45 @@ export class AuthService {
     return { user };
   }
 
-  async validateUser(loginDto:LoginDto){
-    
+  async validateUser(loginDto: LoginDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: loginDto.email },
+    });
+    if (user && (await bcrypt.compare(loginDto.password, user.password))) {
+      return user;
+    }
+    return null;
+  }
+
+  async register(registerDto: RegisterDto, res: Response) {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: registerDto.email },
+    });
+    if (existingUser) {
+      throw new BadRequestException('Email already in use');
+    }
+    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    const user = await this.prisma.user.create({
+      data: {
+        fullname: registerDto.fullname,
+        password: hashedPassword,
+        email: registerDto.email,
+      },
+    });
+    return this.issueTokens(user, res);
+  }
+
+  async login(loginDto: LoginDto, res: Response) {
+    const user = await this.validateUser(loginDto);
+    if (!user) {
+      throw new BadRequestException('Invalid credentials');
+    }
+    return this.issueTokens(user, res);
+  }
+
+  async logout(res: Response) {
+    res.clearCookie('access_token');
+    res.clearCookie('refresh_token');
+    return 'Successfully logged out';
   }
 }
