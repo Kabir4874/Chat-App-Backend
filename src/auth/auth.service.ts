@@ -27,6 +27,7 @@ export class AuthService {
         secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
       });
     } catch (error) {
+      console.log(error.message);
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
     const userExists = await this.prisma.user.findUnique({
@@ -63,5 +64,9 @@ export class AuthService {
     res.cookie('access_token', accessToken, { httpOnly: true });
     res.cookie('refresh_token', refreshToken, { httpOnly: true });
     return { user };
+  }
+
+  async validateUser(loginDto:LoginDto){
+    
   }
 }
